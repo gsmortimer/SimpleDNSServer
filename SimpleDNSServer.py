@@ -6,6 +6,8 @@ import _thread
 import re
 from datetime import datetime
 
+LISTEN_SOCKET = 53
+
 # DNSQuery class from http://code.activestate.com/recipes/491264-mini-fake-dns-server/
 class DNSQuery:
     def __init__(self, data):
@@ -20,7 +22,8 @@ class DNSQuery:
                 self.domain+=data[ini+1:ini+lon+1].decode('ascii')+'.'
                 ini+=lon+1
                 lon=data[ini]
-    
+		
+    # Return DNS Packet with ip address
     def respuesta(self, ip):
         packet=b''
         if self.domain:
@@ -46,7 +49,7 @@ def get_ip_address_by_domain(domain):
             
     return ip_address
 
-
+# Print usage help
 def usage():
     print("")
     print("Usage:")
@@ -65,11 +68,14 @@ def usage():
     
     sys.exit(1)
 
+# DNS Response function
 def query_and_send_back_ip(data, addr, reqtime):
 	try:
 		p=DNSQuery(data)
 		print('%s Request domain: %s from %s' % (reqtime.strftime("%H:%M:%S.%f"), p.domain, addr[0]))
+		# read domain and lookup ip
 		ip = get_ip_address_by_domain(p.domain)
+		# return DNS packet containing new ip, to source address.
 		udps.sendto(p.respuesta(ip), addr)
 		dis = datetime.now() - reqtime
 
@@ -77,6 +83,8 @@ def query_and_send_back_ip(data, addr, reqtime):
 	except Exception as e:
 		print('query for:%s error:%s' % (p.domain, e))
 
+		
+# Read hostsfile and parse into host_ip_map "host_ip_map"
 def get_host_ip_map(hostsfile):
 	host_ip_map = {}
 	try:
@@ -96,7 +104,7 @@ def get_host_ip_map(hostsfile):
     
 	return host_ip_map
 
-
+# Main 
 if __name__ == '__main__':
     hostsfile = None
     host_ip_map = {}
@@ -109,10 +117,11 @@ if __name__ == '__main__':
             host_ip_map = get_host_ip_map(hostsfile)
     
     try:
+	# Bind UDP Socket
         udps = socket.socket(socket.AF_INET, socket.SOCK_DGRAM)
-        udps.bind(('',53))
+        udps.bind(('', LISTEN_SOCKET))
     except Exception as e:
-        print("Failed to create socket on UDP port 53:", e)
+        print("Failed to create socket on UDP port %d:" % LISTEN_SOCKET, e)
         sys.exit(1)
     
     print('SimpleDNSServer :: hosts file -> %s\n' % hostsfile)
